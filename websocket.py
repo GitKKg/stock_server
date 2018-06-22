@@ -6,6 +6,7 @@ import multiprocessing
 import time
 import StockModal.Spider
 from eventlet.green import threading
+from eventlet.queue import Queue
 #eventlet.monkey_patch(socket=True)
 static_folder="C:\WebProgramming\quasar_init1\dist\spa-mat"
 app = Flask(__name__,static_folder=static_folder, static_url_path='')
@@ -16,7 +17,8 @@ spider_Thread=None
 dates_ready=0
 date_seting={}
 spider_async=None
-spider_percent=0
+global spider_percent
+spider_percent = 0
 spider_semaphore = threading.Semaphore(1)
 
 
@@ -45,15 +47,15 @@ def spider(data):
         return
     print(data)
     print("get spider_semaphore")
-    return
+
    # emit('progress', 0)
    # emit('progress', 1)
     emit('progress', 1)
     UpdateSpiderProgress(2)
     StartSeason = (data['date_start_month'] - 1) // 3 + 1
     EndSeason = (data['date_end_month'] - 1) // 3 + 1
-    print()
     print("spider on pid and ppid", os.getpid(), os.getppid())
+    '''
     spider_async = multiprocessing.Process(
         target=StockModal.Spider.Spider_main,
         kwargs={'StartYear':data['date_start_year'],
@@ -61,7 +63,19 @@ def spider(data):
                 }
     )
     spider_async.start()
-    t = threading.Thread(target=report, name='report')
+    '''
+    spider_progress_q = Queue()
+    spider_Thread = threading.Thread(target=StockModal.Spider.Spider_main, name='Spider_main',
+                                    kwargs={'StartYear':data['date_start_year'],
+                                            'EndYear':data['date_end_year'],
+                                            'StartSeason':StartSeason,
+                                            'EndSeason':EndSeason,
+                                            'progress_que':spider_progress_q
+                                            }
+                                     )
+    spider_Thread.setDaemon(True)
+    spider_Thread.start()
+    t = threading.Thread(target=report, name='report', args=(spider_progress_q,))
     t.setDaemon(True)
     t.start()
 
@@ -94,13 +108,15 @@ def UpdateSpiderProgress(percent):
         socketio.emit('progress', percent)
 
 
-def report():
-    global spider_percent
+def report(progress_que):
     print("report  pid and ppid", os.getpid(), os.getppid())
     while True:
+        percent=progress_que.get()
+        if (percent=='end'):
+            break
         with app.app_context():
-            socketio.emit('progress', spider_percent)
-        socketio.sleep(5)
+            socketio.emit('progress', percent)
+        #socketio.sleep(2)
 
     spider_semaphore.release()
 
