@@ -1,12 +1,13 @@
-from flask import Flask, send_file,current_app
+from flask import Flask, send_file
 from flask_socketio import SocketIO, emit
 import os
-import json
-import multiprocessing
-import time
 import StockModal.Spider
+import StockModal.GeneratorSINA
 from eventlet.green import threading
 from eventlet.queue import Queue
+
+
+
 #eventlet.monkey_patch(socket=True)
 static_folder="C:\WebProgramming\quasar_init1\dist\spa-mat"
 app = Flask(__name__,static_folder=static_folder, static_url_path='')
@@ -21,6 +22,12 @@ global spider_percent
 spider_percent = 0
 spider_semaphore = threading.Semaphore(1)
 
+#no work for emit,tested
+import GSym
+GSym._init()
+#GSym.set_value('flask_app',app)
+#GSym.set_value('socketio',socketio)
+GSym.set_value('disconnected',False)
 
 @app.route('/')
 def index():
@@ -35,7 +42,15 @@ def test_connect():
 @socketio.on('disconnect')
 def test_disconnect():
     print('ws disConnected')
+    GSym.set_value('disconnected', True)
 
+@socketio.on('SaveDB')
+def Save_DB():
+    print('Save_DB')
+    Save_DB_Thread=threading.Thread(target=StockModal.GeneratorSINA.StartSaveDB, name='StartSaveDB')
+    Save_DB_Thread.setDaemon(True)
+    Save_DB_Thread.start()
+    print('Save_DB_Thread started')
 
 @socketio.on('spider')
 def spider(data):
@@ -70,8 +85,8 @@ def spider(data):
                                             'EndYear':data['date_end_year'],
                                             'StartSeason':StartSeason,
                                             'EndSeason':EndSeason,
-                                            'progress_que':spider_progress_q
-                                            }
+                                            'progress_que':spider_progress_q,
+                                            'semaphore':spider_semaphore}
                                      )
     spider_Thread.setDaemon(True)
     spider_Thread.start()
@@ -111,11 +126,18 @@ def UpdateSpiderProgress(percent):
 def report(progress_que):
     print("report  pid and ppid", os.getpid(), os.getppid())
     while True:
-        percent=progress_que.get()
-        if (percent=='end'):
-            break
-        with app.app_context():
-            socketio.emit('progress', percent)
+        data=progress_que.get()
+        print(data)
+        if (isinstance(data,str)):
+            with app.app_context():
+                socketio.emit('stockname', data)
+            print('emit name')
+            if (data=='end'):
+                break
+        else:
+            print('progress')
+            with app.app_context():
+                socketio.emit('progress', data)
         #socketio.sleep(2)
 
     spider_semaphore.release()
@@ -127,8 +149,5 @@ if __name__ == '__main__':
             port=85,
 
             )
-    global spider_async
-    if spider_async.is_alive():
-        spider_async.terminate()
-        print('spider killed')
+
     print('socketio out')
