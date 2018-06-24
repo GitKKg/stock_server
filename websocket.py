@@ -1,11 +1,11 @@
-from flask import Flask, send_file
+from flask import Flask, send_file,request
 from flask_socketio import SocketIO, emit
 import os
 import StockModal.Spider
 import StockModal.GeneratorSINA
 from eventlet.green import threading
 from eventlet.queue import Queue
-
+from collections import namedtuple
 
 
 #eventlet.monkey_patch(socket=True)
@@ -29,20 +29,37 @@ GSym._init()
 #GSym.set_value('socketio',socketio)
 GSym.set_value('disconnected',False)
 
+
+
+client_g={}
+
 @app.route('/')
 def index():
+    #print('http Connected sid is 0x', request.sid)
     return send_file(static_folder + '\index.html')
 
 @socketio.on('connect')
 def test_connect():
-    print('ws Connected')
+    print('ws Connected sid is 0x', request.sid)
+    session={'connected':True}
+    #session.connected=True
+    client_g[request.sid]=session
     emit('news',{'data':'hello'})
 #    socketio.emit('progress', 50)
 
 @socketio.on('disconnect')
 def test_disconnect():
     print('ws disConnected')
-    GSym.set_value('disconnected', True)
+    if request.sid in client_g:
+        client_g[request.sid]['connected']=False
+        if 'out_que' in client_g[request.sid]:
+            print('send disconnected')
+            client_g[request.sid]['out_que'].put('disconnected')
+    #dagerous pop here,moved to progress thread
+    #client_g.pop(request.sid)
+    #need thread event here,Gym not work
+
+    #GSym.set_value('disconnected', True)
 
 @socketio.on('SaveDB')
 def Save_DB():
@@ -55,6 +72,7 @@ def Save_DB():
 @socketio.on('spider')
 def spider(data):
     global spider_async
+    print('spider sid is 0x',request.sid)
     # flask web container thread reenterable,here make sure at the same time only one index page could spider
     if not spider_semaphore.acquire(blocking=False):
         print("not get spider_semaphore")
@@ -65,8 +83,8 @@ def spider(data):
 
    # emit('progress', 0)
    # emit('progress', 1)
-    emit('progress', 1)
-    UpdateSpiderProgress(2)
+    #emit('progress', 1)
+    #UpdateSpiderProgress(2)
     StartSeason = (data['date_start_month'] - 1) // 3 + 1
     EndSeason = (data['date_end_month'] - 1) // 3 + 1
     print("spider on pid and ppid", os.getpid(), os.getppid())
@@ -79,20 +97,24 @@ def spider(data):
     )
     spider_async.start()
     '''
-    spider_progress_q = Queue()
-    spider_Thread = threading.Thread(target=StockModal.Spider.Spider_main, name='Spider_main',
+    client_g[request.sid]['out_que']=Queue()
+    client_g[request.sid]['spider_progress_que'] = Queue()
+    client_g[request.sid]['spider_thread'] = threading.Thread(target=StockModal.Spider.Spider_main, name='Spider_main',
                                     kwargs={'StartYear':data['date_start_year'],
                                             'EndYear':data['date_end_year'],
                                             'StartSeason':StartSeason,
                                             'EndSeason':EndSeason,
-                                            'progress_que':spider_progress_q,
+                                            'progress_que':client_g[request.sid]['spider_progress_que'],
+                                            'out_que':client_g[request.sid]['out_que'],
                                             'semaphore':spider_semaphore}
                                      )
-    spider_Thread.setDaemon(True)
-    spider_Thread.start()
-    t = threading.Thread(target=report, name='report', args=(spider_progress_q,))
-    t.setDaemon(True)
-    t.start()
+    client_g[request.sid]['spider_thread'].setDaemon(True)
+    client_g[request.sid]['spider_thread'].start()
+    client_g[request.sid]['sp_progress_thread']= threading.Thread(target=sp_progress_thread,
+                                                                  name='sp_progress_thread',
+                                                                  args=(request.sid,client_g[request.sid]['spider_progress_que'],))
+    client_g[request.sid]['sp_progress_thread'].setDaemon(True)
+    client_g[request.sid]['sp_progress_thread'].start()
 
 
     '''
@@ -123,23 +145,25 @@ def UpdateSpiderProgress(percent):
         socketio.emit('progress', percent)
 
 
-def report(progress_que):
-    print("report  pid and ppid", os.getpid(), os.getppid())
+def sp_progress_thread(sid,progress_que):
+    print("sp_progress_thread  pid and ppid", os.getpid(), os.getppid())
     while True:
         data=progress_que.get()
         print(data)
         if (isinstance(data,str)):
             with app.app_context():
-                socketio.emit('stockname', data)
+                socketio.emit('stockname', data,room=sid)
             print('emit name')
             if (data=='end'):
                 break
         else:
             print('progress')
             with app.app_context():
-                socketio.emit('progress', data)
+                socketio.emit('progress', data,room=sid)
         #socketio.sleep(2)
-
+    #now save to pop because spider is out
+    print('session over on ',sid)
+    client_g.pop(sid)
     spider_semaphore.release()
 
 if __name__ == '__main__':
