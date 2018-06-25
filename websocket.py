@@ -28,10 +28,13 @@ GSym._init()
 #GSym.set_value('flask_app',app)
 #GSym.set_value('socketio',socketio)
 GSym.set_value('disconnected',False)
+GSym.set_value('socketio',socketio)
 
 
 
 client_g={}
+
+GSym.set_value('client_g',client_g)
 
 @app.route('/')
 def index():
@@ -52,16 +55,18 @@ def test_disconnect():
     print('ws disConnected')
     if request.sid in client_g:
         client_g[request.sid]['connected']=False
+        '''
         if 'out_que' in client_g[request.sid]:
             print('send disconnected')
             client_g[request.sid]['out_que'].put('disconnected')
+        '''
     #dagerous pop here,moved to progress thread
     #client_g.pop(request.sid)
     #need thread event here,Gym not work
 
     #GSym.set_value('disconnected', True)
 
-@socketio.on('SaveDB')
+@socketio.on('SaveDB')#not finished,do nothing to mutex protect,leave after scaning
 def Save_DB():
     print('Save_DB')
     Save_DB_Thread=threading.Thread(target=StockModal.GeneratorSINA.StartSaveDB, name='StartSaveDB')
@@ -97,53 +102,59 @@ def spider(data):
     )
     spider_async.start()
     '''
-    client_g[request.sid]['out_que']=Queue()
-    client_g[request.sid]['spider_progress_que'] = Queue()
+    #client_g[request.sid]['out_que']=Queue()
+    #client_g[request.sid]['spider_progress_que'] = Queue()
     client_g[request.sid]['spider_thread'] = threading.Thread(target=StockModal.Spider.Spider_main, name='Spider_main',
-                                    kwargs={'StartYear':data['date_start_year'],
+                                    kwargs={'sid':request.sid,
+                                            'StartYear':data['date_start_year'],
                                             'EndYear':data['date_end_year'],
                                             'StartSeason':StartSeason,
                                             'EndSeason':EndSeason,
-                                            'progress_que':client_g[request.sid]['spider_progress_que'],
-                                            'out_que':client_g[request.sid]['out_que'],
+                                            #'progress_que':client_g[request.sid]['spider_progress_que'],
+                                            #'out_que':client_g[request.sid]['out_que'],
                                             'semaphore':spider_semaphore}
                                      )
+
     client_g[request.sid]['spider_thread'].setDaemon(True)
     client_g[request.sid]['spider_thread'].start()
+
+    '''
     client_g[request.sid]['sp_progress_thread']= threading.Thread(target=sp_progress_thread,
                                                                   name='sp_progress_thread',
                                                                   args=(request.sid,client_g[request.sid]['spider_progress_que'],))
     client_g[request.sid]['sp_progress_thread'].setDaemon(True)
     client_g[request.sid]['sp_progress_thread'].start()
-
-
     '''
-    date_seting['StartYear']=data['date_start_year']
-    date_seting['EndYear']=data['date_end_year']
-    date_seting['StartSeason'] = StartSeason
-    date_seting['EndSeason'] = EndSeason
+#start_background_task also works,but parameter assign got bug deep inside,
+# args and kwargs will induce err in 3.4 lib,could only use serial assigning,and start could'nt be call manually
+    '''client_g[request.sid]['spider_thread'] = socketio.start_background_task(StockModal.Spider.Spider_main,
+                                                                            data['date_start_year'],
+                                                                            data['date_end_year'],
+                                                                             StartSeason,
+                                                                             EndSeason,
+                                                                             client_g[request.sid][
+                                                                                 'spider_progress_que'],
+                                                                             client_g[request.sid]['out_que'],
+                                                                             spider_semaphore) #name='Spider_main',
 
-    spider_Thread = threading.Thread(target=StockModal.Spider.Spider_main, name='Spider_main',
-                                     args=(date_seting,)
-                                     )
-    spider_Thread.setDaemon(True)
-    spider_Thread.start()
+
+    #client_g[request.sid]['spider_thread'].setDaemon(True)
+    #client_g[request.sid]['spider_thread'].start()
+    client_g[request.sid]['sp_progress_thread']= socketio.start_background_task(sp_progress_thread,
+                                                                  #name='sp_progress_thread',
+                                                                  request.sid,client_g[request.sid]['spider_progress_que'])
+    #client_g[request.sid]['sp_progress_thread'].setDaemon(True)
+    #client_g[request.sid]['sp_progress_thread'].start()
     '''
-    if 0:
-        StockModal.Spider.Spider_main(
-        StartYear=data['date_start_year'],EndYear=data['date_end_year'], StartSeason= StartSeason, EndSeason= EndSeason
-        )
-#    for i in range(0,1000):
-#        emit('progress', i)
+    print('handle spider finished')
 
-    print('spider_Thread started')
-
+'''
 def UpdateSpiderProgress(percent):
     global app
     print('UpdateSpiderProgress emmited')
     with app.app_context():
         socketio.emit('progress', percent)
-
+'''
 
 def sp_progress_thread(sid,progress_que):
     print("sp_progress_thread  pid and ppid", os.getpid(), os.getppid())
@@ -165,6 +176,7 @@ def sp_progress_thread(sid,progress_que):
     print('session over on ',sid)
     client_g.pop(sid)
     spider_semaphore.release()
+
 
 if __name__ == '__main__':
 
