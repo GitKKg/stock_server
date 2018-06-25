@@ -3,6 +3,7 @@ from flask_socketio import SocketIO, emit
 import os
 import StockModal.Spider
 import StockModal.GeneratorSINA
+import StockModal.DBLoader
 from eventlet.green import threading
 from eventlet.queue import Queue
 from collections import namedtuple
@@ -21,6 +22,7 @@ spider_async=None
 global spider_percent
 spider_percent = 0
 spider_semaphore = threading.Semaphore(1)
+LoadDB_semaphore = threading.Semaphore(1)
 
 #no work for emit,tested
 import GSym
@@ -35,6 +37,11 @@ GSym.set_value('socketio',socketio)
 client_g={}
 
 GSym.set_value('client_g',client_g)
+
+#every scaning processes share it for read not write!
+DB_memconn = None
+
+
 
 @app.route('/')
 def index():
@@ -65,6 +72,24 @@ def test_disconnect():
     #need thread event here,Gym not work
 
     #GSym.set_value('disconnected', True)
+
+@socketio.on('LdDb')
+def Load_DB():
+    global DB_memconn
+    print('Load_DB')
+    if (DB_memconn!=None):
+        emit('loaded')
+        return
+    if not LoadDB_semaphore.acquire(blocking=False):
+        print("not get spider_semaphore")
+        emit('loading')
+        return
+    print('Got LoadDB_semaphore')
+    DB_memconn=StockModal.DBLoader.loadDB(request.sid)
+
+def UpdateLoadDBProgress(percent,sid):
+    GSym.get_value('socketio').emit('db_progress', percent)# broadcast due to DB memory backup read is shared.   room=sid
+    GSym.get_value('socketio').sleep()#give chance to flush out
 
 @socketio.on('SaveDB')#not finished,do nothing to mutex protect,leave after scaning
 def Save_DB():
@@ -148,14 +173,16 @@ def spider(data):
     '''
     print('handle spider finished')
 
-'''
-def UpdateSpiderProgress(percent):
-    global app
-    print('UpdateSpiderProgress emmited')
-    with app.app_context():
-        socketio.emit('progress', percent)
-'''
+#even in socketio orginal file,still need GSym way,if ref to socketio directly ,will get no effect when these 2 function called in other file
+def UpdateSpiderProgress(percent,sid):
+    GSym.get_value('socketio').emit('progress', percent, room=sid)
+    GSym.get_value('socketio').sleep()#give chance to flush out
 
+def UpdateSpideredName(stockName,sid):
+    GSym.get_value('socketio').emit('stockname', stockName, room=sid)
+    GSym.get_value('socketio').sleep()
+
+'''
 def sp_progress_thread(sid,progress_que):
     print("sp_progress_thread  pid and ppid", os.getpid(), os.getppid())
     while True:
@@ -176,7 +203,7 @@ def sp_progress_thread(sid,progress_que):
     print('session over on ',sid)
     client_g.pop(sid)
     spider_semaphore.release()
-
+'''
 
 if __name__ == '__main__':
 
