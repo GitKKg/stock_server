@@ -5,17 +5,54 @@ import StockModal.Spider
 import StockModal.GeneratorSINA
 import StockModal.DBLoader
 from eventlet.green import threading
+
 import json
 from eventlet.queue import Queue
 from collections import namedtuple
+from eventlet import monkey_patch
+monkey_patch(socket=True)
 
+#Note:how to run
+#1.celery worker -A websocket.celery --loglevel=info
+#2.python websocket.py
 
 #eventlet.monkey_patch(socket=True)
 static_folder="C:\WebProgramming\quasar_init1\dist\spa-mat"
 app = Flask(__name__,static_folder=static_folder, static_url_path='')
 app.config['SECRET_KEY'] = 'secret!'
+app.config.update(
+    CELERY_BROKER_URL='amqp://localhost//',
+    CELERY_RESULT_BACKEND='amqp://localhost//'
+)
+socketio = SocketIO(app,async_mode='eventlet',message_queue='amqp://')
 
-socketio = SocketIO(app)
+from celery import Celery
+
+""" 
+This function:
+- creates a new Celery object 
+- configures it with the broker from the application config 
+- updates the rest of the Celery config from the Flask config
+- creates a subclass of the task that wraps the task execution in an application context 
+
+This is necessary to properly integrate Celery with Flask. 
+"""
+
+
+def make_celery(app):
+    celery = Celery(app.import_name, backend=app.config['CELERY_RESULT_BACKEND'],
+                    broker=app.config['CELERY_BROKER_URL'])
+    celery.conf.update(app.config)
+    TaskBase = celery.Task
+    class ContextTask(TaskBase):
+        abstract = True
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return TaskBase.__call__(self, *args, **kwargs)
+    celery.Task = ContextTask
+    return celery
+celery = make_celery(app)
+
 spider_Thread=None
 dates_ready=0
 date_seting={}
@@ -41,6 +78,7 @@ GSym.set_value('client_g',client_g)
 
 #every scaning processes share it for read not write!
 DB_memconn = None
+
 
 
 
@@ -223,7 +261,7 @@ if __name__ == '__main__':
 
     print("__main__  pid and ppid", os.getpid(), os.getppid())
     socketio.run(app,host='0.0.0.0',
-            port=85,
+            port=5000,
 
             )
 
