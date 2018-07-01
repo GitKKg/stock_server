@@ -1,16 +1,24 @@
 from flask import Flask, send_file,request
 from flask_socketio import SocketIO, emit
 import os
+import sys
+import platform
 import StockModal.Spider
 import StockModal.GeneratorSINA
 import StockModal.DBLoader
+#import StockModal.Scanner
 from eventlet.green import threading
-
+from celery import Celery
 import json
 from eventlet.queue import Queue
 from collections import namedtuple
 from eventlet import monkey_patch
 monkey_patch(socket=True)#only patch socket related c lib,is required for celery and amqp,or else socket connection timeout forever
+
+#Note:how to run
+#1.celery worker -A websocket.celery --loglevel=info
+#2.python websocket.py
+
 
 #eventlet.monkey_patch(socket=True)
 static_folder="C:\WebProgramming\quasar_init1\dist\spa-mat"
@@ -22,19 +30,9 @@ app.config.update(
 )
 socketio = SocketIO(app,async_mode='eventlet',message_queue='amqp://')#when no debug ,async_mode='eventlet' is actually default
 
-from celery import Celery
-
-""" 
-This function:
-- creates a new Celery object 
-- configures it with the broker from the application config 
-- updates the rest of the Celery config from the Flask config
-- creates a subclass of the task that wraps the task execution in an application context 
-
-This is necessary to properly integrate Celery with Flask. 
-"""
 
 
+#no need to pass app.app_context for socket.emit if got sid,but need for emit,just backup here
 def make_celery(app):
     celery = Celery(app.import_name, backend=app.config['CELERY_RESULT_BACKEND'],
                     broker=app.config['CELERY_BROKER_URL'])
@@ -47,7 +45,9 @@ def make_celery(app):
                 return TaskBase.__call__(self, *args, **kwargs)
     celery.Task = ContextTask
     return celery
-celery = make_celery(app)
+
+celery = Celery('my_task',broker=app.config['CELERY_BROKER_URL'])
+#celery.conf.update(app.config)
 
 spider_Thread=None
 dates_ready=0
@@ -91,10 +91,21 @@ def scan_request():
     return 'ok'
 
 @socketio.on('scan')
-def start_scan(ScanParameter):
+def start_scan(ScanParameter,sid):#scan should be forked by self,emit be handed over to celery
     print('ws start_scan')
     print(ScanParameter)
-
+    print(sid)
+    print(request.sid)#should be same
+    '''
+    scan_async = multiprocessing.Process(
+        target=StockModal.Scanner.Scaner_main,
+        kwargs={'ScanParameter': ScanParameter,
+                'sid': request.sid
+                }
+    )
+    scan_async.daemon=True
+    scan_async.start()
+    '''
 
 @socketio.on('connect')
 def test_connect():
@@ -109,6 +120,7 @@ def test_connect():
 def test_disconnect():
     print('ws disConnected')
     if request.sid in client_g:
+        #since message queue is introduced,global here become dangerous,but
         client_g[request.sid]['connected']=False
         '''
         if 'out_que' in client_g[request.sid]:
@@ -125,6 +137,13 @@ def test_disconnect():
 def Load_DB():
     global DB_memconn
     print('Load_DB')
+    systype=platform.platform().upper()
+    print(systype)
+    if 'WINDOW' in systype :#get no way to share mem copy between process in widows,so put DB in SSD without load
+        UpdateLoadDBProgress(100, request.sid)
+        emit('loaded')
+        return
+
     if (DB_memconn!=None):
         emit('loaded')
         return
@@ -134,6 +153,7 @@ def Load_DB():
         return
     print('Got LoadDB_semaphore')
     DB_memconn=StockModal.DBLoader.loadDB(request.sid)
+    print(DB_memconn)
 
 def UpdateLoadDBProgress(percent,sid):
     GSym.get_value('socketio').emit('db_progress', percent)# broadcast due to DB memory backup read is shared.   room=sid

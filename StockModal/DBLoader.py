@@ -2,7 +2,8 @@ import os, apsw
 #from PyQt4 import QtCore
 import websocket
 
-DB_Path='E:/SA/StockAssist_0304/DB/final.db'
+#DB_Path='E:/SA/StockAssist_0304/DB/final.db'
+DB_Path='C:/WebProgramming/DB/final.db'
 
 def loadDB(sid):
     db = DBLoad(sid)
