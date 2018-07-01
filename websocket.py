@@ -5,6 +5,7 @@ import StockModal.Spider
 import StockModal.GeneratorSINA
 import StockModal.DBLoader
 from eventlet.green import threading
+import json
 from eventlet.queue import Queue
 from collections import namedtuple
 
@@ -45,17 +46,30 @@ DB_memconn = None
 
 @app.route('/')
 def index():
-    #print('http Connected sid is 0x', request.sid)
+    print('http Connected ')
+    print(request)
+    #print(request.sid)
     return send_file(static_folder + '\index.html')
+
+@app.route('/scan' , methods=['POST'])
+def scan_request():
+    print('post http  Connected sid is 0x', request.data)
+    return 'ok'
+
+@socketio.on('scan')
+def start_scan(ScanParameter):
+    print('ws start_scan')
+    print(ScanParameter)
+
 
 @socketio.on('connect')
 def test_connect():
     print('ws Connected sid is 0x', request.sid)
+    print(request)
     session={'connected':True}
     #session.connected=True
     client_g[request.sid]=session
-    emit('news',{'data':'hello'})
-#    socketio.emit('progress', 50)
+    return {'sid':request.sid}
 
 @socketio.on('disconnect')
 def test_disconnect():
