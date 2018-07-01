@@ -10,11 +10,7 @@ import json
 from eventlet.queue import Queue
 from collections import namedtuple
 from eventlet import monkey_patch
-monkey_patch(socket=True)
-
-#Note:how to run
-#1.celery worker -A websocket.celery --loglevel=info
-#2.python websocket.py
+monkey_patch(socket=True)#only patch socket related c lib,is required for celery and amqp,or else socket connection timeout forever
 
 #eventlet.monkey_patch(socket=True)
 static_folder="C:\WebProgramming\quasar_init1\dist\spa-mat"
@@ -24,7 +20,7 @@ app.config.update(
     CELERY_BROKER_URL='amqp://localhost//',
     CELERY_RESULT_BACKEND='amqp://localhost//'
 )
-socketio = SocketIO(app,async_mode='eventlet',message_queue='amqp://')
+socketio = SocketIO(app,async_mode='eventlet',message_queue='amqp://')#when no debug ,async_mode='eventlet' is actually default
 
 from celery import Celery
 
@@ -261,7 +257,7 @@ if __name__ == '__main__':
 
     print("__main__  pid and ppid", os.getpid(), os.getppid())
     socketio.run(app,host='0.0.0.0',
-            port=5000,
+            port=85,
 
             )
 
