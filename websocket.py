@@ -2,6 +2,7 @@ from flask import Flask, send_file,request
 from flask_socketio import SocketIO, emit
 import os
 import sys
+import multiprocessing
 import platform
 import StockModal.Spider
 import StockModal.GeneratorSINA
@@ -113,14 +114,14 @@ def start_scan(ScanParameter,sid):#scan should be forked by self,emit be handed 
     socketio = SocketIO(message_queue='amqp://')
     socketio.emit('array', [1,2,'hello',3], room=request.sid)
     # multiprocessing.Process #first use thread test ,easy for debug
-    scan_async = threading.Thread(
+    scan_async = multiprocessing.Process(
         target=StockModal.Scanner.Scaner_main,
         kwargs={'ScanParameter': ScanParameter,
                 'sid': request.sid
                 }
     )
-    scan_async.setDaemon(True)
-    #scan_async.daemon=True
+    #scan_async.setDaemon(True)
+    scan_async.daemon=True
     scan_async.start()
 
 
