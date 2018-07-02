@@ -6,7 +6,7 @@ import platform
 import StockModal.Spider
 import StockModal.GeneratorSINA
 import StockModal.DBLoader
-#import StockModal.Scanner
+import StockModal.Scanner
 from eventlet.green import threading
 from celery import Celery
 import json
@@ -16,7 +16,7 @@ from eventlet import monkey_patch
 monkey_patch(socket=True)#only patch socket related c lib,is required for celery and amqp,or else socket connection timeout forever
 
 #Note:how to run
-#1.celery worker -A websocket.celery --loglevel=info
+#1.celery worker -A websocket.celery --loglevel=debug
 #2.python websocket.py
 
 
@@ -26,7 +26,9 @@ app = Flask(__name__,static_folder=static_folder, static_url_path='')
 app.config['SECRET_KEY'] = 'secret!'
 app.config.update(
     CELERY_BROKER_URL='amqp://localhost//',
-    CELERY_RESULT_BACKEND='amqp://localhost//'
+    #CELERY_RESULT_BACKEND='amqp://localhost//',
+    #CELERY_ACKS_LATE=True,
+    #CELERYD_PREFETCH_MULTIPLIER = 500
 )
 socketio = SocketIO(app,async_mode='eventlet',message_queue='amqp://')#when no debug ,async_mode='eventlet' is actually default
 
@@ -47,7 +49,7 @@ def make_celery(app):
     return celery
 
 celery = Celery('my_task',broker=app.config['CELERY_BROKER_URL'])
-#celery.conf.update(app.config)
+celery.conf.update(app.config)
 
 spider_Thread=None
 dates_ready=0
@@ -90,22 +92,37 @@ def scan_request():
     print('post http  Connected sid is 0x', request.data)
     return 'ok'
 
+def UpdateScanerProgress(percent,sid):
+    print('UpdateScanerProgress')
+    socketio = SocketIO(message_queue='amqp://')
+    socketio.emit('ScanerProgress', percent, room=sid)
+
+def UpdatedScanMatch(data_array,sid):
+    print('UpdatedScanMatch')
+    socketio = SocketIO(message_queue='amqp://')
+    print(data_array)
+    socketio.emit('ScanMatch', data_array,room=sid)
+
+
 @socketio.on('scan')
 def start_scan(ScanParameter,sid):#scan should be forked by self,emit be handed over to celery
     print('ws start_scan')
     print(ScanParameter)
     print(sid)
     print(request.sid)#should be same
-    '''
-    scan_async = multiprocessing.Process(
+    socketio = SocketIO(message_queue='amqp://')
+    socketio.emit('array', [1,2,'hello',3], room=request.sid)
+    # multiprocessing.Process #first use thread test ,easy for debug
+    scan_async = threading.Thread(
         target=StockModal.Scanner.Scaner_main,
         kwargs={'ScanParameter': ScanParameter,
                 'sid': request.sid
                 }
     )
-    scan_async.daemon=True
+    scan_async.setDaemon(True)
+    #scan_async.daemon=True
     scan_async.start()
-    '''
+
 
 @socketio.on('connect')
 def test_connect():
@@ -120,7 +137,7 @@ def test_connect():
 def test_disconnect():
     print('ws disConnected')
     if request.sid in client_g:
-        #since message queue is introduced,global here become dangerous,but
+        #since message queue is introduced,global here become dangerous,but sid is bind with process provided no reconnection
         client_g[request.sid]['connected']=False
         '''
         if 'out_que' in client_g[request.sid]:
@@ -172,6 +189,7 @@ def spider(data):
     global spider_async
     print('spider sid is 0x',request.sid)
     # flask web container thread reenterable,here make sure at the same time only one index page could spider
+    # since message queue is introduced,thread semaphore here become dangerous,should re-implement by database inquiry
     if not spider_semaphore.acquire(blocking=False):
         print("not get spider_semaphore")
         emit('progress', 80)
