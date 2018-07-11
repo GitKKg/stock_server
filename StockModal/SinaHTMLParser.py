@@ -104,7 +104,7 @@ class SinaHTMLParser(HTMLParser):
                 if self.stockName is None: 
                     self.stockName = data.rstrip(" \r\t\n").lstrip(" \r\t\n").replace("*", "_")
                     if self.stockName != "()": # means this stock has no FuQuan data
-                        websocket.UpdateSpideredName(self.stockName,self.sid)
+                        websocket.UpdateSpideredName(self.stockName , self.sid)
                         #self.que.put(self.stockName)
                         print(self.stockName)
                         self.noName = False

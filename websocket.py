@@ -13,6 +13,11 @@ from celery import Celery
 import json
 from eventlet.queue import Queue
 from collections import namedtuple
+
+#import here ,or else spider will got maximum recursion depth exceeded err due to eventlet conflict with pysocks
+#that is ,let monkey_patch them
+import socks
+import socket
 from eventlet import monkey_patch
 monkey_patch(socket=True)#only patch socket related c lib,is required for celery and amqp,or else socket connection timeout forever
 

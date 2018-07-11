@@ -1,18 +1,19 @@
 import os, apsw
-import time
-import sys
+#import time
+#import sys
 #from PyQt4 import QtCore
 
 from StockModal.SinaHTMLParser import SinaHTMLParser
-from urllib.request import urlopen
-import urllib
+#from urllib.request import urlopen
+#import urllib
 import websocket
-import eventlet.queue
+import requests
+#import eventlet.queue
 
 # kyle added for ban
 import six
-import socks
-import socket
+#import socks
+#import socket
 from urllib.error import URLError
 
 import traceback  # kyle added for occasionally url time out check
@@ -24,8 +25,7 @@ class NoName(Exception): pass
 
 
 import GSym
-#Flask_app=GSym.get_value('flask_app')
-#Flask_app=GSym.get_value('flask_app')
+
 
 class Spider:
     def __init__(self, sid,sina_path, stock_total,semaphore):  # progress_que,out_que, kyle added sina_path
@@ -78,10 +78,10 @@ class Spider:
                 #websocket.UpdateSpiderProgress(self.spider_percent)
                 continue
             self.parser.newStock()
-            if (self.spidered_sum>10):
-                #self.que.put('end')
-                print('test version,just spider 10 stocks,finished')
-                break
+            #if (self.spidered_sum>10):
+            #    #self.que.put('end')
+            #    print('test version,just spider 10 stocks,finished')
+            #    break
             try:
                 self.spidered_sum+=1
                 spider_percent = int(100 * self.spidered_sum / self.stock_total)
@@ -121,17 +121,23 @@ class Spider:
                                 break
                             if self.nowsocks == 1:
                                 self.nowsocks = 0
-                                socks.set_default_proxy(socks.SOCKS5, '127.0.0.1', 1088)
-                                socket.socket = socks.socksocket
+                                #socks.set_default_proxy(socks.SOCKS5, '127.0.0.1', 1088)
+                                #socket.socket = socks.socksocket
+                                #socks.wrapmodule(urllib)
+                                #urllib.request.socket=socks.socksocket
                                 try:
                                     print('use socks5\n')
-                                    html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
+                                    #html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
+                                    html = requests.get(self.baseURL % (stock, year, season),
+                                                        proxies=dict(http='socks5://127.0.0.1:1088'))
+                                    html.encoding='gbk'
+                                    html=html.text
                                     print(self.baseURL % (stock, year, season))
                                     print('ban sleep 2s\n')
                                     # kyle, socketio.sleep both prevent banning and give other thread to emit percent,but time.sleep will hold emit until spider out
                                     GSym.get_value('socketio').sleep(2)
 
-                                    self.parser.feed(html.decode("gbk"))
+                                    self.parser.feed(html)
                                     break
                                 except:
                                     print("Error: %s %d %d" % (stock, year, season))
@@ -139,16 +145,23 @@ class Spider:
                                     continue
                             else:
                                 self.nowsocks = 1
-                                socks.set_default_proxy()  # no use proxy,direct link
-                                socket.socket = socks.socksocket
+                                #socks.set_default_proxy()  # no use proxy,direct link
+                                #socket.socket = socks.socksocket
+                                #socks.wrapmodule(urllib)
+                                #urllib.request.socket = socks.socksocket
                                 try:
                                     print('direct link\n')
-                                    html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
+                                    #html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
+                                    html = requests.get(self.baseURL % (stock, year, season))
+                                    html.encoding = 'gbk'
+                                    html = html.text
+
                                     print(self.baseURL % (stock, year, season))
                                     print('ban sleep 3s\n')
                                     # kyle, socketio.sleep both prevent banning and give other thread to emit percent,but time.sleep will hold emit until spider out
                                     GSym.get_value('socketio').sleep(3)
-                                    self.parser.feed(html.decode("gbk"))
+
+                                    self.parser.feed(html)
                                     break
                                 except:
                                     print("Error: %s %d %d" % (stock, year, season))
