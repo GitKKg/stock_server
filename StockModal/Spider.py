@@ -41,7 +41,7 @@ class Spider:
         self.spider_percent=0
         self.spidered_sum = 0
         # self.default_sock_proxy=socks.get_default_proxy()
-        self.nowsocks = 1;
+        self.nowsocks = 1
         # self.logFile = open("d:/spider/"+self.name+".log", "w")
 
     def setStocksList(self, stocksList):

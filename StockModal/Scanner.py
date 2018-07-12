@@ -102,6 +102,8 @@ class Scanner:
             dates, values, shares, factors, averages, fuquan_averages = Algo.transposeSINA(data)
             topSeq = topFilter(fuquan_averages)
             bottomSeq = bottomFilter(fuquan_averages)
+            dates = dates.tolist()
+            dates = list(map(lambda obj: obj.strftime('%Y%m%d'), dates))
 
             for key in self.argsDict.keys():
                 enabled = self.argsDict[key].get("enable")
@@ -119,8 +121,7 @@ class Scanner:
                     print('found!!!')
                     #self.foundMatch.emit([code, name, np.array(dates), np.array(values), np.array(shares), np.array(factors), np.array(averages), np.array(fuquan_averages), np.array(topSeq), np.array(bottomSeq), graphs])
 
-                    dates=dates.tolist()
-                    dates=list(map( lambda obj:obj.strftime('%Y%m%d'),dates))
+
 
                     #graphs=list(graphs)
                     print(graphs)
@@ -132,7 +133,7 @@ class Scanner:
                     websocket.UpdatedScanMatch(
                         [code, name, dates, values.tolist(),
                          shares.tolist(), factors.tolist(), averages.tolist(),
-                         fuquan_averages.tolist(), topSeq.tolist(), bottomSeq.tolist(), str(graphs)],
+                         fuquan_averages.tolist(), topSeq.tolist(), bottomSeq.tolist(), graphs],
                                      self.sid)
                     #websocket.UpdatedScanMatch(graphs)
 
