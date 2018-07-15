@@ -32,11 +32,14 @@ app = Flask(__name__,static_folder=static_folder, static_url_path='')
 app.config['SECRET_KEY'] = 'secret!'
 app.config.update(
     CELERY_BROKER_URL='amqp://localhost//',
+    # no work... default 120,will make amqp finally close connection with us,due to celery not send heartbeat..
+    BROKER_HEARTBEAT=0
+
     # CELERY_RESULT_BACKEND='amqp://localhost//',
     # CELERY_ACKS_LATE=True,
     # CELERYD_PREFETCH_MULTIPLIER = 500
 )
-socketio = SocketIO(app,async_mode='eventlet',message_queue='amqp://')# when no debug ,async_mode='eventlet' is actually default
+socketio = SocketIO(app, async_mode='eventlet', message_queue='amqp://')# when no debug ,async_mode='eventlet' is actually default
 
 
 
@@ -55,8 +58,9 @@ def make_celery(app):
     return celery
 
 
-celery = Celery('my_task',broker=app.config['CELERY_BROKER_URL'])
+celery = Celery('my_task', broker=app.config['CELERY_BROKER_URL'])
 celery.conf.update(app.config)
+celery.conf.broker_heartbeat = 0
 
 spider_Thread=None
 dates_ready=0
@@ -75,7 +79,7 @@ GSym._init()
 GSym.set_value('disconnected',False)
 GSym.set_value('socketio',socketio)
 
-client_g={}
+client_g = {}
 
 GSym.set_value('client_g',client_g)
 
@@ -105,7 +109,7 @@ def UpdateScanerProgress(percent,sid):
 def UpdatedScanMatch(data_array,sid):
     print('UpdatedScanMatch')
     socketio = SocketIO(message_queue='amqp://')
-    print(data_array)
+    #print(data_array)  # in console ,chcp 65001 then set PYTHONIOENCODING=utf-8, then run websocket.py again,or else ...
     socketio.emit('ScanMatch', data_array,room=sid)
 
 
@@ -308,9 +312,8 @@ def sp_progress_thread(sid,progress_que):
 if __name__ == '__main__':
 
     print("__main__  pid and ppid", os.getpid(), os.getppid())
-    socketio.run(app,host='0.0.0.0',
-            port=85,
-
-            )
+    socketio.run(app, host='0.0.0.0',
+                 port=85
+                 )
 
     print('socketio out')

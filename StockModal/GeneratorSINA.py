@@ -2,11 +2,13 @@ import os, apsw
 from struct import unpack
 #from PyQt4 import QtCore
 import traceback
+
+# del name in UNIQUE,because stock name may be changed due to ST or shell-borrowing such shit happen
 _table_prop = """(name TEXT, code TEXT, date INTEGER, 
                     shares FLOAT, value FLOAT, factor INTEGER, 
                     open INTEGER, high INTEGER, close INTEGER, 
                     low INTEGER, average FLOAT, fuquan_average FLOAT,
-                    UNIQUE(code, name, date))"""
+                    UNIQUE(code, date))"""
 
 
 SinaDirPath='E:/SA/StockAssist_0304/sina'
