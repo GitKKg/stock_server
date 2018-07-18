@@ -1,8 +1,8 @@
 import os, apsw
-#from PyQt4 import QtCore
+# from PyQt4 import QtCore
 import websocket
 
-#DB_Path='E:/SA/StockAssist_0304/DB/final.db'
+# DB_Path='E:/SA/StockAssist_0304/DB/final.db'
 DB_Path='C:/WebProgramming/DB/final.db'
 
 def loadDB(sid):
@@ -18,12 +18,14 @@ class DBLoad:
     
     def setFileName(self, fileName=DB_Path):
         self.fileName = fileName
-        #self.progressText.emit("Loading %s (%%p%%)" % fileName, True)
+        # self.progressText.emit("Loading %s (%%p%%)" % fileName, True)
         
     def run(self):
         self.phyconn = apsw.Connection(self.fileName)
         self.memconn = apsw.Connection(":memory:")
-        try:#backup.__exit__() just make sure copy if finished,not close backup,so with is good,memconn is still exist when out
+        try:
+            # backup.__exit__() just make sure copy if finished,not close backup,
+            # so with is good,memconn is still exist when out
             with self.memconn.backup("main", self.phyconn, "main") as backup:
                 # call with 0 to get the total pages
                 backup.step(0)
@@ -42,12 +44,11 @@ class DBLoad:
                     stepped_percentage = stepped*100//total
                     if stepped_percentage != last_percentage:
                         last_percentage = stepped_percentage
-                        #self.progressChanged.emit(stepped_percentage)
+                        # self.progressChanged.emit(stepped_percentage)
                         websocket.UpdateLoadDBProgress(stepped_percentage,self.sid)
                 # Done
-                #self.progressFinished.emit()
+                # self.progressFinished.emit()
         except :
-            #self.progressError.emit("Error when loading database!")
+            # self.progressError.emit("Error when loading database!")
             self.memconn=None
             pass
-            

@@ -28,7 +28,11 @@ monkey_patch(socket=True)#only patch socket related c lib,is required for celery
 
 #eventlet.monkey_patch(socket=True)
 static_folder="C:\WebProgramming\quasar_init1\dist\spa-mat"
-app = Flask(__name__,static_folder=static_folder, static_url_path='')
+# for python 3.7, root_path and instance_path must be explicitly assigned,
+# or else,Scaner_main in multiprocess will import err
+app = Flask(__name__, static_folder=static_folder, static_url_path='', root_path=os.getcwd(),
+            instance_path=os.getcwd())
+
 app.config['SECRET_KEY'] = 'secret!'
 app.config.update(
     CELERY_BROKER_URL='amqp://localhost//',
@@ -39,8 +43,9 @@ app.config.update(
     # CELERY_ACKS_LATE=True,
     # CELERYD_PREFETCH_MULTIPLIER = 500
 )
-socketio = SocketIO(app, async_mode='eventlet', message_queue='amqp://')# when no debug ,async_mode='eventlet' is actually default
 
+# when no debug ,async_mode='eventlet' is actually default
+socketio = SocketIO(app, async_mode='eventlet', message_queue='amqp://')
 
 
 # no need to pass app.app_context for socket.emit if got sid,but need for emit,just backup here
@@ -91,7 +96,7 @@ DB_memconn = None
 def index():
     print('http Connected ')
     print(request)
-    #print(request.sid)
+    # print(request.sid)
     return send_file(static_folder + '\index.html')
 
 @app.route('/scan' , methods=['POST'])
@@ -109,7 +114,7 @@ def UpdateScanerProgress(percent,sid):
 def UpdatedScanMatch(data_array,sid):
     print('UpdatedScanMatch')
     socketio = SocketIO(message_queue='amqp://')
-    #print(data_array)  # in console ,chcp 65001 then set PYTHONIOENCODING=utf-8, then run websocket.py again,or else ...
+    # print(data_array)  # in console ,chcp 65001 then set PYTHONIOENCODING=utf-8, then run websocket.py again,or else ...
     socketio.emit('ScanMatch', data_array,room=sid)
 
 
@@ -147,7 +152,7 @@ def test_connect():
 def test_disconnect():
     print('ws disConnected')
     if request.sid in client_g:
-        #since message queue is introduced,global here become dangerous,but sid is bind with process provided no reconnection
+        # since message queue is introduced,global here become dangerous,but sid is bind with process provided no reconnection
         client_g[request.sid]['connected']=False
         '''
         if 'out_que' in client_g[request.sid]:
@@ -167,7 +172,7 @@ def Load_DB():
     print('Load_DB')
     systype=platform.platform().upper()
     print(systype)
-    if 'WINDOW' in systype:# get no way to share mem copy between process in widows,so put DB in SSD without load
+    if 'WINDOW' in systype: # get no way to share mem copy between process in widows,so put DB in SSD without load
         UpdateLoadDBProgress(100, request.sid)
         emit('loaded')
         return
@@ -185,11 +190,12 @@ def Load_DB():
 
 
 def UpdateLoadDBProgress(percent,sid):
-    GSym.get_value('socketio').emit('db_progress', percent)# broadcast due to DB memory backup read is shared.   room=sid
-    GSym.get_value('socketio').sleep()#give chance to flush out
+    # broadcast due to DB memory backup read is shared.   room=sid
+    GSym.get_value('socketio').emit('db_progress', percent)
+    GSym.get_value('socketio').sleep()  # give chance to flush out
 
 
-@socketio.on('SaveDB')#not finished,do nothing to mutex protect,leave after scaning
+@socketio.on('SaveDB')  # not finished,do nothing to mutex protect,leave after scaning
 def Save_DB():
     print('Save_DB')
     Save_DB_Thread=threading.Thread(target=StockModal.GeneratorSINA.StartSaveDB, name='StartSaveDB')

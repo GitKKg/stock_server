@@ -1,23 +1,23 @@
 from html.parser import HTMLParser
-from html.entities import name2codepoint
+# from html.entities import name2codepoint
 from struct import pack
 from collections import namedtuple
-import threading
+# import threading
 import websocket
-import GSym
+# import GSym
 TTagState = namedtuple("TTagState", "tag attr value next data")
 
 class Matched(Exception): pass
 
 class SinaHTMLParser(HTMLParser):
-    def __init__(self, sid,sina_dir,parent=None):#progress_que,
+    def __init__(self, sid, sina_dir, parent=None):#progress_que,
         #self.que=progress_que
         self.sid=sid
         self.endTagStates = ("table", None, None, None, False)
         self.setParserFromat(True)
         self.stockName = None
         self.file = None
-        self.sina_dir_path=sina_dir
+        self.sina_dir_path = sina_dir
         self.fileFormat = ("date", "shares", "value", "factor", "open", "high", "close", "low")
         
         super(SinaHTMLParser, self).__init__(parent)
@@ -88,7 +88,7 @@ class SinaHTMLParser(HTMLParser):
     def flushData(self):
         if self.file is None:
             self.file = open(self.sina_dir_path+"//"+self.stockName+".sina", "wb")
-            #self.file = open("d:/sina/"+self.stockName+".sina", "wb")
+            # self.file = open("d:/sina/"+self.stockName+".sina", "wb")
         self.file.write(pack("<lfflllll", *list(map(self.row.get, self.fileFormat))))    
         
     def handle_starttag(self, tag, attrs):
@@ -105,7 +105,7 @@ class SinaHTMLParser(HTMLParser):
                     self.stockName = data.rstrip(" \r\t\n").lstrip(" \r\t\n").replace("*", "_")
                     if self.stockName != "()": # means this stock has no FuQuan data
                         websocket.UpdateSpideredName(self.stockName , self.sid)
-                        #self.que.put(self.stockName)
+                        # self.que.put(self.stockName)
                         print(self.stockName)
                         self.noName = False
                     else:
@@ -120,4 +120,3 @@ class SinaHTMLParser(HTMLParser):
             if self.startTagKey == "date" and self.hasRealData:
                 self.processData()
                 self.flushData()
-                    

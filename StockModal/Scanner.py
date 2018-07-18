@@ -1,18 +1,16 @@
 from __future__ import division
 
-from datetime import date
+# from datetime import date
 
 import apsw
 
 import numpy as np
 
-import json
-
 import websocket
 from . import Algorithm as Algo
-#from PyQt4 import QtCore
+# from PyQt4 import QtCore
 
-DB_Path='C:/WebProgramming/DB/final.db'
+DB_Path = 'C:/WebProgramming/DB/final.db'
 
 def Scaner_main(ScanParameter,sid):
     scanner=Scanner(ScanParameter,sid)
@@ -45,10 +43,10 @@ class Scanner:
         Algo.setParameters(args)
 
     def run(self):
-        #self.progressText.emit("Load table...", False)
+        # self.progressText.emit("Load table...", False)
         print("Load table...")
-        #self.progressChanged.emit(10)
-        websocket.UpdateScanerProgress(10,self.sid)
+        # self.progressChanged.emit(10)
+        websocket.UpdateScanerProgress(10, self.sid)
         cursor = self.connection.cursor()
         print('cursor')
         print(self.connection)
@@ -124,7 +122,7 @@ class Scanner:
 
 
                     #graphs=list(graphs)
-                    print(graphs)
+                    #print(graphs)
                     #graphs=json.dumps(list(graphs))
                     #graph = []
                     #rect_left = max(56,21)
@@ -135,7 +133,7 @@ class Scanner:
                          shares.tolist(), factors.tolist(), averages.tolist(),
                          fuquan_averages.tolist(), topSeq.tolist(), bottomSeq.tolist(), graphs],
                                      self.sid)
-                    #websocket.UpdatedScanMatch(graphs)
+                    # websocket.UpdatedScanMatch(graphs)
 
 
             i = i + 1
@@ -145,4 +143,4 @@ class Scanner:
                         websocket.UpdateScanerProgress(scanned_percentage, self.sid)
                         #self.progressChanged.emit(scanned_percentage)
 
-        #self.progressFinished.emit()
+        # self.progressFinished.emit()
