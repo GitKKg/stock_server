@@ -2,6 +2,7 @@
 ### Example user template template
 ### Example user template
 
+stock_codes/
 # IntelliJ project files
 .idea
 *.iml
