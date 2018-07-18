@@ -20,7 +20,8 @@ class SinaHTMLParser(HTMLParser):
         self.sina_dir_path = sina_dir
         self.fileFormat = ("date", "shares", "value", "factor", "open", "high", "close", "low")
         
-        super(SinaHTMLParser, self).__init__(parent)
+        # super(SinaHTMLParser, self).__init__(parent)
+        super(SinaHTMLParser, self).__init__()  # Python 3.7 no need parent para here any more
         
     def newStock(self):
         if self.file is not None:
