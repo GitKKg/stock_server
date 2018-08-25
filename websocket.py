@@ -114,7 +114,7 @@ def UpdateScanerProgress(percent,sid):
 def UpdatedScanMatch(data_array,sid):
     print('UpdatedScanMatch')
     socketio = SocketIO(message_queue='amqp://')
-    # print(data_array)  # in console ,chcp 65001 then set PYTHONIOENCODING=utf-8, then run websocket.py again,or else ...
+    print(data_array)  # in console ,chcp 65001 then set PYTHONIOENCODING=utf-8, then run websocket.py again,or else ...
     socketio.emit('ScanMatch', data_array,room=sid)
 
 

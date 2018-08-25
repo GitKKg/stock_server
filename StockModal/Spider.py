@@ -201,7 +201,11 @@ def Spider_main(sid,StartYear,EndYear,StartSeason,EndSeason,semaphore):#progress
     connection = apsw.Connection(StockCodesName)
     cursor = connection.cursor()
     cursor.execute('select name from stock')
-    stocksList = list(map(lambda x: x[0], cursor.fetchall()))
+
+    # stocksList = list(map(lambda x: x[0], cursor.fetchall()))
+    # kyle added set to remove replication due to renaming for ST or shell borrowing such shit happen
+    stocksList = sorted(list(set(map(lambda x: x[0], cursor.fetchall()))))
+
     print("Start retriving data...")
     total = len(stocksList)
  #   numberOfThreads = 1

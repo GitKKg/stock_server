@@ -13,7 +13,7 @@ from . import Algorithm as Algo
 DB_Path = 'C:/WebProgramming/DB/final.db'
 
 def Scaner_main(ScanParameter,sid):
-    scanner=Scanner(ScanParameter,sid)
+    scanner = Scanner(ScanParameter,sid)
     scanner.setConnection()
     scanner.setParameters(ScanParameter)
     scanner.run()

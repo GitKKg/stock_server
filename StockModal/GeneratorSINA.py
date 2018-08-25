@@ -11,8 +11,8 @@ _table_prop = """(name TEXT, code TEXT, date INTEGER,
                     UNIQUE(code, date))"""
 
 
-SinaDirPath='E:/SA/StockAssist_0304/sina'
-DB_Path='E:/SA/StockAssist_0304/DB/final.db'
+SinaDirPath = 'E:/SA/StockAssist_0304/sina'
+DB_Path = 'C:/WebProgramming/DB/final.db'
 def StartSaveDB():
     sina=GeneratorSINA()
     sina.setSinaDir(SinaDirPath)
@@ -86,7 +86,7 @@ class GeneratorSINA():
             cursor.execute('attach database "%s" as local_db' % self.savedFileName)
             cursor.execute("create table if not exists local_db.stock %s" % _table_prop)
             cursor.execute("""insert or ignore into local_db.stock (name, code, date, shares, value, factor, open, high, close, low, average, fuquan_average)
-                            select * from stock""")
+                            select * from stock""")  # insert or replace
             cursor.execute("detach database local_db")
             connection.close()
             print('db save over')
