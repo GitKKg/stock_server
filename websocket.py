@@ -22,7 +22,7 @@ from eventlet import monkey_patch
 monkey_patch(socket=True)#only patch socket related c lib,is required for celery and amqp,or else socket connection timeout forever
 
 # Note:how to run
-# 1.celery worker -A websocket.celery --loglevel=debug
+# 1. celery worker -A websocket.celery --loglevel=debug
 # 2.python websocket.py
 
 
@@ -37,7 +37,7 @@ app.config['SECRET_KEY'] = 'secret!'
 app.config.update(
     CELERY_BROKER_URL='amqp://localhost//',
     # no work... default 120,will make amqp finally close connection with us,due to celery not send heartbeat..
-    BROKER_HEARTBEAT=0
+    BROKER_HEARTBEAT=20
 
     # CELERY_RESULT_BACKEND='amqp://localhost//',
     # CELERY_ACKS_LATE=True,
