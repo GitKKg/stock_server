@@ -76,6 +76,7 @@ spider_percent = 0
 spider_semaphore = threading.Semaphore(1)
 LoadDB_semaphore = threading.Semaphore(1)
 
+current_sid = 0
 # no work for emit,tested
 import GSym
 GSym._init()
@@ -83,7 +84,7 @@ GSym._init()
 # GSym.set_value('socketio',socketio)
 GSym.set_value('disconnected',False)
 GSym.set_value('socketio',socketio)
-
+GSym.set_value('current_sid',current_sid)
 client_g = {}
 
 GSym.set_value('client_g',client_g)
@@ -144,6 +145,8 @@ def test_connect():
     print(request)
     session={'connected':True}
     # session.connected=True
+    current_sid = request.sid
+    GSym.set_value('current_sid', current_sid)
     client_g[request.sid]=session
     return {'sid':request.sid}
 
@@ -151,10 +154,13 @@ def test_connect():
 @socketio.on('disconnect')
 def test_disconnect():
     print('ws disConnected')
+    # kyle del temptly , reconnection met when spider recently ,need add a sync to wait for sid update
+    '''
     if request.sid in client_g:
         # since message queue is introduced,global here become dangerous,but sid is bind with process provided no reconnection
         client_g[request.sid]['connected']=False
         '''
+    '''
         if 'out_que' in client_g[request.sid]:
             print('send disconnected')
             client_g[request.sid]['out_que'].put('disconnected')
@@ -206,8 +212,11 @@ def Save_DB():
 
 @socketio.on('spider')
 def spider(data):
+    global current_sid
     global spider_async
     print('spider sid is 0x',request.sid)
+    current_sid = request.sid
+    GSym.set_value('current_sid', current_sid)
     # flask web container thread reenterable,here make sure at the same time only one index page could spider
     # since message queue is introduced,thread semaphore here become dangerous,should re-implement by database inquiry
     if not spider_semaphore.acquire(blocking=False):
@@ -236,14 +245,14 @@ def spider(data):
     # client_g[request.sid]['out_que']=Queue()
     # client_g[request.sid]['spider_progress_que'] = Queue()
     client_g[request.sid]['spider_thread'] = threading.Thread(target=StockModal.Spider.Spider_main, name='Spider_main',
-                                    kwargs={'sid':request.sid,
-                                            'StartYear':data['date_start_year'],
-                                            'EndYear':data['date_end_year'],
-                                            'StartSeason':StartSeason,
-                                            'EndSeason':EndSeason,
+                                    kwargs={'sid': current_sid,  # no choice, sync weired reconnection of sid by ref
+                                            'StartYear': data['date_start_year'],
+                                            'EndYear': data['date_end_year'],
+                                            'StartSeason': StartSeason,
+                                            'EndSeason': EndSeason,
                                             #'progress_que':client_g[request.sid]['spider_progress_que'],
                                             #'out_que':client_g[request.sid]['out_que'],
-                                            'semaphore':spider_semaphore}
+                                            'semaphore': spider_semaphore}
                                      )
 
     client_g[request.sid]['spider_thread'].setDaemon(True)

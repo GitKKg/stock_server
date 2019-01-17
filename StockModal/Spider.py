@@ -67,14 +67,14 @@ class Spider:
             if GSym.get_value('client_g')[self.sid]['connected']==False:
                 print('spider know disconnected')
                 break
-            if stock.startswith(("010", "019", '1', '2', '3', '4', '5', '7', '8', '9')):  # kyle
+            if stock.startswith(("010", "019", '1', '2', '3', '4', '5', '7', '8', '9')):  # kyle '0'
                 self.spidered_sum+=1
                 spider_percent=int(100*self.spidered_sum/self.stock_total)
                 if(spider_percent>old_percent):
                     old_percent = spider_percent
                     print(spider_percent)
                     #self.que.put(spider_percent)
-                    websocket.UpdateSpiderProgress(spider_percent,self.sid)
+                    websocket.UpdateSpiderProgress(spider_percent, GSym.get_value('current_sid'))
                 #websocket.UpdateSpiderProgress(self.spider_percent)
                 continue
             self.parser.newStock()
@@ -89,7 +89,7 @@ class Spider:
                     old_percent = spider_percent
                     print(spider_percent)
                     #self.que.put(spider_percent)
-                    websocket.UpdateSpiderProgress(spider_percent, self.sid)
+                    websocket.UpdateSpiderProgress(spider_percent, GSym.get_value('current_sid'))
                 #websocket.UpdateSpiderProgress(websocket.spider_percent)
 
                 if 1:
@@ -129,7 +129,7 @@ class Spider:
                                     print('use socks5\n')
                                     #html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
                                     html = requests.get(self.baseURL % (stock, year, season),
-                                                        proxies=dict(http='socks5://127.0.0.1:1088'))
+                                                        proxies=dict(http='socks5://127.0.0.1:5678'), timeout=(3, 3))
                                     html.encoding='gbk'
                                     html=html.text
                                     print(self.baseURL % (stock, year, season))
@@ -152,7 +152,7 @@ class Spider:
                                 try:
                                     print('direct link\n')
                                     #html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
-                                    html = requests.get(self.baseURL % (stock, year, season))
+                                    html = requests.get(self.baseURL % (stock, year, season), timeout=(3, 3))
                                     html.encoding = 'gbk'
                                     html = html.text
 
@@ -168,6 +168,9 @@ class Spider:
                                     traceback.print_exc()
                                     continue
 
+                        if retry == 9:
+                            print("Retry 10 times still failed to get " + self.name + " %s: %d, %d\n"
+                                  % (stock, year, season))
                         if self.parser.noName:
                             raise NoName()
 
@@ -183,7 +186,7 @@ class Spider:
             print('session disconnected,so drop client info ')
             GSym.get_value('client_g').pop(self.sid)
         #self.que.put('end')
-        websocket.UpdateSpideredName('end',self.sid)
+        websocket.UpdateSpideredName('end', GSym.get_value('current_sid'))
         #GSym.get_value('socketio').emit('stockname', 'end', room=self.sid)
         self.semaphore.release()
 
