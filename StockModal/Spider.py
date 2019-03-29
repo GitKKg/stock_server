@@ -19,7 +19,9 @@ from urllib.error import URLError
 import traceback  # kyle added for occasionally url time out check
 StockCodesName='E:/SA/StockAssist_0304/stock_codes/stock_codes.db'
 SinaDirPath='E:/SA/StockAssist_0304/sina'
-baseURL=r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_FuQuanMarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
+# baseURL=r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_FuQuanMarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
+# Sina changed ...
+baseURL=r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_MarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
 #sina_path=os.getcwd()+"\sina_dir"
 class NoName(Exception): pass
 

@@ -19,7 +19,7 @@ class SinaHTMLParser(HTMLParser):
         self.file = None
         self.sina_dir_path = sina_dir
         self.fileFormat = ("date", "shares", "value", "factor", "open", "high", "close", "low")
-        
+        self.noName = False
         # super(SinaHTMLParser, self).__init__(parent)
         super(SinaHTMLParser, self).__init__()  # Python 3.7 no need parent para here any more
         
@@ -32,7 +32,7 @@ class SinaHTMLParser(HTMLParser):
     def setParserFromat(self, new):
         if new:
             self.startTagStates = {"begin" : ("table", "id", "FundHoldSharesTable", "name", False),
-                                   "name"  : ("th", "colspan", "8", "date", True),
+                                   "name"  : ("th", "colspan", "7", "date", True),
                                    "date"  : ("a", "target", "_blank", "open", True),
                                    "open"  : ("div", None, None, "high", True),
                                    "high"  : ("div", None, None, "close", True),
