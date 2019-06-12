@@ -4,6 +4,7 @@ import os, apsw
 #from PyQt4 import QtCore
 
 from StockModal.SinaHTMLParser import SinaHTMLParser
+from StockModal.SinaDividendShareGrantingHtmlParser import DividendShareGrantingParser
 #from urllib.request import urlopen
 #import urllib
 import websocket
@@ -17,11 +18,13 @@ import six
 from urllib.error import URLError
 
 import traceback  # kyle added for occasionally url time out check
-StockCodesName='E:/SA/StockAssist_0304/stock_codes/stock_codes.db'
+StockCodesName = 'C:\WebProgramming\ServerPy3.6\StockModal\stock_codes\stock_codes.db'
 SinaDirPath='E:/SA/StockAssist_0304/sina'
 # baseURL=r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_FuQuanMarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
 # Sina changed ...
-baseURL=r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_MarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
+baseURL = r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_MarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
+
+exRightURL = r"http://vip.stock.finance.sina.com.cn/corp/go.php/vISSUE_ShareBonus/stockid/%s.phtml"
 #sina_path=os.getcwd()+"\sina_dir"
 class NoName(Exception): pass
 
@@ -30,17 +33,22 @@ import GSym
 
 
 class Spider:
-    def __init__(self, sid,sina_path, stock_total,semaphore):  # progress_que,out_que, kyle added sina_path
-        self.parser = SinaHTMLParser(sid,sina_path)  # ,progress_que
+    def __init__(self, sid, sina_path, stock_total, semaphore):  # progress_que,out_que, kyle added sina_path
+
+        self.exRightParser = DividendShareGrantingParser(0, 0)
+
+        self.parser = SinaHTMLParser(self.exRightParser, sid, sina_path,)  # ,progress_que
+        self.exRightURL = exRightURL
+
         self.baseURL = baseURL
-        self.sid=sid
+        self.sid = sid
         self.cancel = False
         #self.que=progress_que
         #self.out_que =out_que
         self.semaphore = semaphore
         #self.name = name
-        self.stock_total=stock_total
-        self.spider_percent=0
+        self.stock_total = stock_total
+        self.spider_percent = 0
         self.spidered_sum = 0
         # self.default_sock_proxy=socks.get_default_proxy()
         self.nowsocks = 1
@@ -70,9 +78,9 @@ class Spider:
                 print('spider know disconnected')
                 break
             if stock.startswith(("010", "019", '1', '2', '3', '4', '5', '7', '8', '9')):  # kyle '0'
-                self.spidered_sum+=1
-                spider_percent=int(100*self.spidered_sum/self.stock_total)
-                if(spider_percent>old_percent):
+                self.spidered_sum += 1
+                spider_percent = int(100*self.spidered_sum/self.stock_total)
+                if spider_percent > old_percent:
                     old_percent = spider_percent
                     print(spider_percent)
                     #self.que.put(spider_percent)
@@ -85,9 +93,9 @@ class Spider:
             #    print('test version,just spider 10 stocks,finished')
             #    break
             try:
-                self.spidered_sum+=1
+                self.spidered_sum += 1
                 spider_percent = int(100 * self.spidered_sum / self.stock_total)
-                if (spider_percent > old_percent):
+                if spider_percent > old_percent:
                     old_percent = spider_percent
                     print(spider_percent)
                     #self.que.put(spider_percent)
@@ -96,9 +104,11 @@ class Spider:
 
                 if 1:
                   for year in range(self.yearFirst, self.yearLast + 1):
+                    self.exRightParser.year = year
                     seasonStart = self.seasonFirst if year == self.yearFirst else 1
                     seasonEnd = self.seasonLast if year == self.yearLast else 4
                     for season in range(seasonStart, seasonEnd + 1):
+                        self.exRightParser.season = season
                         # before 2006 season 2, the HTML formats are different
                         if GSym.get_value('client_g')[self.sid]['connected'] == False:
                             print('spider know disconnected')
@@ -129,17 +139,42 @@ class Spider:
                                 #urllib.request.socket=socks.socksocket
                                 try:
                                     print('use socks5\n')
+
+                                    print('exRightHtml \n')
+
+                                    exRightHtml = requests.get(self.exRightURL % stock,
+                                                        proxies=dict(http='socks5://127.0.0.1:5678'), timeout=(3, 3))
+
+                                    exRightHtml.encoding = 'gbk'
+                                    exRightHtml = exRightHtml.text
+                                    print(self.exRightURL % stock)
+                                    self.exRightParser.setParserFromat()
+                                    self.exRightParser.feed(exRightHtml)
+
+                                    #  convert str into int or float
+                                    if self.exRightParser.gotDividendShareInfo:
+                                        print("%s got new DividendShareInfo \n" % stock)
+                                        self.exRightParser.processDividendShareData()
+                                    if self.exRightParser.gotShareGrantingInfo:
+                                        print("%s got new ShareGrantInfo \n" % stock)
+                                        self.exRightParser.processShareGrantingData()
+
+                                    print('exRightParser ban sleep 3s\n')
+                                    GSym.get_value('socketio').sleep(3)
+
                                     #html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
                                     html = requests.get(self.baseURL % (stock, year, season),
                                                         proxies=dict(http='socks5://127.0.0.1:5678'), timeout=(3, 3))
-                                    html.encoding='gbk'
-                                    html=html.text
+                                    html.encoding = 'gbk'
+                                    html = html.text
                                     print(self.baseURL % (stock, year, season))
                                     print('ban sleep 2s\n')
                                     # kyle, socketio.sleep both prevent banning and give other thread to emit percent,but time.sleep will hold emit until spider out
                                     GSym.get_value('socketio').sleep(2)
-
+                                    self.parser.stockCode = stock
+                                    self.parser.resetFactorExPrices()
                                     self.parser.feed(html)
+                                    self.parser.updateCurrentSeasonFuquanAndFactor()
                                     break
                                 except:
                                     print("Error: %s %d %d" % (stock, year, season))
@@ -153,6 +188,28 @@ class Spider:
                                 #urllib.request.socket = socks.socksocket
                                 try:
                                     print('direct link\n')
+
+                                    print('exRightHtml \n')
+
+                                    exRightHtml = requests.get(self.exRightURL % stock, timeout=(3, 3))
+
+                                    exRightHtml.encoding = 'gbk'
+                                    exRightHtml = exRightHtml.text
+                                    print(self.exRightURL % stock)
+                                    self.exRightParser.setParserFromat()
+                                    self.exRightParser.feed(exRightHtml)
+
+                                    #  convert str into int or float
+                                    if self.exRightParser.gotDividendShareInfo:
+                                        print("%s got new DividendShareInfo \n" % stock)
+                                        self.exRightParser.processDividendShareData()
+                                    if self.exRightParser.gotShareGrantingInfo:
+                                        print("%s got new ShareGrantInfo \n" % stock)
+                                        self.exRightParser.processShareGrantingData()
+
+                                    print('exRightParser ban sleep 3s\n')
+                                    GSym.get_value('socketio').sleep(3)
+
                                     #html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
                                     html = requests.get(self.baseURL % (stock, year, season), timeout=(3, 3))
                                     html.encoding = 'gbk'
@@ -163,7 +220,12 @@ class Spider:
                                     # kyle, socketio.sleep both prevent banning and give other thread to emit percent,but time.sleep will hold emit until spider out
                                     GSym.get_value('socketio').sleep(3)
 
+                                    self.parser.stockCode = stock
+                                    self.parser.resetFactorExPrices()
+
                                     self.parser.feed(html)
+
+                                    self.parser.updateCurrentSeasonFuquanAndFactor()
                                     break
                                 except:
                                     print("Error: %s %d %d" % (stock, year, season))
@@ -171,7 +233,7 @@ class Spider:
                                     continue
 
                         if retry == 9:
-                            print("Retry 10 times still failed to get " + self.name + " %s: %d, %d\n"
+                            print("Retry 10 times still failed to get " + self.parser.stockName + " %s: %d, %d\n"
                                   % (stock, year, season))
                         if self.parser.noName:
                             raise NoName()
@@ -210,6 +272,9 @@ def Spider_main(sid,StartYear,EndYear,StartSeason,EndSeason,semaphore):#progress
     # stocksList = list(map(lambda x: x[0], cursor.fetchall()))
     # kyle added set to remove replication due to renaming for ST or shell borrowing such shit happen
     stocksList = sorted(list(set(map(lambda x: x[0], cursor.fetchall()))))
+
+    # test
+    # stocksList = ["000006"]
 
     print("Start retriving data...")
     total = len(stocksList)

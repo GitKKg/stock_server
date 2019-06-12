@@ -99,6 +99,7 @@ def index():
     print(request)
     # print(request.sid)
     return send_file(static_folder + '\index.html')
+    # return send_file(static_folder + '\/test.html')
 
 @app.route('/scan' , methods=['POST'])
 def scan_request():

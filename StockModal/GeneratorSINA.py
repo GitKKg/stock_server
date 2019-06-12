@@ -36,6 +36,10 @@ class GeneratorSINA():
             connection = apsw.Connection(":memory:")
             cursor = connection.cursor()
             cursor.execute("create table if not exists stock %s" % (_table_prop))
+
+            self.savedFileName = self.db_dir  # "d:/19901219_to_20140725_SINA.db"# % (minDate, maxDate)
+            cursor.execute('attach database "%s" as local_db' % self.savedFileName)
+            cursor.execute("create table if not exists local_db.stock %s" % _table_prop)
             
             filelist = os.listdir(self.dir)
             os.chdir(self.dir)
@@ -65,7 +69,7 @@ class GeneratorSINA():
                     cursor.execute("insert or ignore into stock values(?,?,?,?,?,?,?,?,?,?,?,?)",
                                    nameAndCode+list(data)+[data[2]/data[1] if data[1] > 0 else 0, 0])
                     index = index + 32
-        
+
                 # filling the fuquan_average data
                 # 1. get the latest factor
                 # 2. fuquan_average = average * (factor/latest_factor)
@@ -73,18 +77,18 @@ class GeneratorSINA():
                 # fetchall will return data in tuples even if you're requesting 1 element
                 latestFactor = cursor.fetchall()[-1][0]
                 cursor.execute('update stock set fuquan_average=average*factor/%d where code="%s" ' % (latestFactor, nameAndCode[1]))
+                cursor.execute('update local_db.stock set fuquan_average=average*factor/%d where code="%s" ' % (latestFactor, nameAndCode[1]))
                 i = i + 1
                 converted_percentage = i * 70 // len(filelist)
                 if converted_percentage != last_percentage:
                             last_percentage = converted_percentage
                             #self.progressChanged.emit(converted_percentage)
+
             
             # save to local disk file
             #self.progressText.emit("Flushing to disk... (%p%)", False)
             # get the data's date range
-            self.savedFileName = self.db_dir#"d:/19901219_to_20140725_SINA.db"# % (minDate, maxDate)                       
-            cursor.execute('attach database "%s" as local_db' % self.savedFileName)
-            cursor.execute("create table if not exists local_db.stock %s" % _table_prop)
+
             cursor.execute("""insert or ignore into local_db.stock (name, code, date, shares, value, factor, open, high, close, low, average, fuquan_average)
                             select * from stock""")  # insert or replace
             cursor.execute("detach database local_db")

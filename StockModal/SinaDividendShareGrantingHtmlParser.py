@@ -6,6 +6,9 @@ from collections import namedtuple
 # import websocket
 # import GSym
 
+# Warning here, this parser just aims to get latest time exRight info due to implement complexity,
+# so should be used one time by on season
+
 import requests
 
 TTagState = namedtuple("TTagState", "tag attr value next data")  # data is bool,decide if need this element data
@@ -34,7 +37,7 @@ class DividendShareGrantingParser(HTMLParser):
         # self.sid = sid
         self.startTagkey = None
         self.endTagStates = ("table", None, None, None, False)
-        self.setParserFromat(True)
+        self.setParserFromat()
         self.stockName = None
         self.file = None
         self.dataAvial = False
@@ -44,7 +47,7 @@ class DividendShareGrantingParser(HTMLParser):
         # super(SinaHTMLParser, self).__init__(parent)
         super(DividendShareGrantingParser, self).__init__()  # Python 3.7 no need parent para here any more
 
-    def setParserFromat(self, new):
+    def setParserFromat(self):
         self.startTagStates = {
             "begin": ("table", "id", "sharebonus_1", "AnnouncementDate", False),
             "nextRow": ("tr", None, None, "AnnouncementDate", False),
@@ -73,6 +76,8 @@ class DividendShareGrantingParser(HTMLParser):
         # self.hasRealData = False
         self.dataEnd = False
         self.row = {}
+        self.gotDividendShareInfo = False
+        self.gotShareGrantingInfo = False
 
     def decode(self, tag, attrs):
         if tag == self.startTag.tag:
@@ -94,18 +99,29 @@ class DividendShareGrantingParser(HTMLParser):
                     # else:# all spider are finished
                     #    self.dataEnd = True
 
-    # def processData(self):
-    #     self.row["date"] = (lambda x, y, z: x * 10000 + y * 100 + z)(*list(map(int, self.row["date"].split("-"))))
-    #     self.row["shares"] = float(self.row["shares"])
-    #     self.row["value"] = float(self.row["value"])
-    #     for field in self.fileFormat[3:]:
-    #         self.row[field] = int(float(self.row[field]) * 1000)
-    #
-    # def flushData(self):
-    #     if self.file is None:
-    #         self.file = open(self.sina_dir_path + "//" + self.stockName + ".sina", "wb")
-    #         # self.file = open("d:/sina/"+self.stockName+".sina", "wb")
-    #     self.file.write(pack("<lfflllll", *list(map(self.row.get, self.fileFormat))))
+    def processDividendShareData(self):
+        self.row["exRightDate"] = (lambda x, y, z: x * 10000 + y * 100 + z)(
+            *list(map(int, self.row["exRightDate"].split("-"))))
+        self.row["recordDate"] = (lambda x, y, z: x * 10000 + y * 100 + z)(
+            *list(map(int, self.row["recordDate"].split("-"))))
+        self.row["dividend"] = float(self.row["dividend"])
+        self.row["sharesSent"] = float(self.row["sharesSent"])  # maybe not Integer,just so weird
+        self.row["sharesTranscent"] = float(self.row["sharesTranscent"])  # maybe not Integer,just so weird
+
+    def processShareGrantingData(self):
+        self.row["exRightDate2"] = (lambda x, y, z: x * 10000 + y * 100 + z)(*list(map(int, self.row["exRightDate2"].split("-"))))
+        self.row["recordDate2"] = (lambda x, y, z: x * 10000 + y * 100 + z)(
+            *list(map(int, self.row["recordDate2"].split("-"))))
+        self.row["buyOfferingRatio"] = float(self.row["buyOfferingRatio"])  # maybe not Integer,just so weird
+        self.row["offeringPrice"] = float(self.row["offeringPrice"])
+        # self.row["capitalStock"] = float(self.row["capitalStock"])
+
+
+    def flushData(self):
+        if self.file is None:
+            self.file = open(self.sina_dir_path + "//" + self.stockName + ".sina", "wb")
+            # self.file = open("d:/sina/"+self.stockName+".sina", "wb")
+        self.file.write(pack("<lfflllll", *list(map(self.row.get, self.fileFormat))))
 
     def handle_starttag(self, tag, attrs):
         if not self.dataEnd:
@@ -119,7 +135,7 @@ class DividendShareGrantingParser(HTMLParser):
     def handle_data(self, data):
         if not self.dataEnd and self.dataAvial:
             # self.hasRealData = True
-            self.row[self.startTagKey] = data.rstrip(" \r\t\n").lstrip(" \r\t\n") # save the element data
+            self.row[self.startTagKey] = data.rstrip(" \r\t\n").lstrip(" \r\t\n")  # save the element data
             if self.startTagKey == "sharebonus2":  # note table end tag for handle_endtag to exit
                 self.endTableId = "sharebonus_2"
 
@@ -131,8 +147,13 @@ class DividendShareGrantingParser(HTMLParser):
                 self.startTag = TTagState._make(self.startTagStates[self.startTagKey])
                 self.dataAvial = False
             elif self.startTagKey == "exRightDate":
-                exRightYear , exRightSeason= (lambda x, y, z: (x, y//4+1))(*list(map(int, self.row[self.startTagKey].split("-"))))
-                print("exRightYear is %d,exRightSeason is %d" %(exRightYear,exRightSeason))  # for debug
+                try:
+                    exRightYear , exRightSeason= (lambda x, y, z: (x, (y+2)//3))(*list(map(int, self.row[self.startTagKey].split("-"))))
+                    print("exRightYear is %d,exRightSeason is %d" %(exRightYear, exRightSeason))  # for debug
+                except:
+                    print("Got implemented notice,but no exDate data!\n")
+                    exRightYear =0
+                    exRightSeason=0
                 if exRightYear != self.year or exRightSeason != self.season:
                     self.startTagKey = "sharebonus2"
                     self.startTag = TTagState._make(self.startTagStates[self.startTagKey])
@@ -144,7 +165,7 @@ class DividendShareGrantingParser(HTMLParser):
                     self.startTagKey = self.startTag.next
                     self.startTag = TTagState._make(self.startTagStates[self.startTagKey])
             elif self.startTagKey == "exRightDate2":
-                exRightYear2 , exRightSeason2= (lambda x, y, z: (x, y//4+1))(*list(map(int, self.row[self.startTagKey].split("-"))))
+                exRightYear2 , exRightSeason2= (lambda x, y, z: (x, (y+2)//3))(*list(map(int, self.row[self.startTagKey].split("-"))))
                 print ("exRightYear2 is %d,exRightSeason2 is %d" %(exRightYear2,exRightSeason2)) # for debug
                 if exRightYear2 != self.year or exRightSeason2 != self.season:
                     self.startTagKey = "AnnouncementDate2"
@@ -175,8 +196,8 @@ if __name__ == "__main__":
     html = requests.get("http://money.finance.sina.com.cn/corp/go.php/vISSUE_ShareBonus/stockid/002166.phtml")
     html.encoding = 'gbk'
     html = html.text
-    parser = DividendShareGrantingParser(2019, 1)
-    parser.setParserFromat(new=True)
+    parser = DividendShareGrantingParser(2019, 2)
+    parser.setParserFromat()
     parser.feed(html)
     print(parser.row)
     print("end")
