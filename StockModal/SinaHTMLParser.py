@@ -191,8 +191,8 @@ class SinaHTMLParser(HTMLParser):
                     self.recordDayClose, = self.cursor.fetchone()
                     self.exPrice = (self.recordDayClose -
                                     1000*self.exParser.row["dividend"]/10) / (
-                                    1000+1000*self.exParser.row["sharesSent"]/10 +
-                                    1000*self.exParser.row["sharesTranscent"]/10)
+                                    1+self.exParser.row["sharesSent"]/10 +
+                                    self.exParser.row["sharesTranscent"]/10)
                     self.dividendShareFactor = self.recordDayClose / self.exPrice
                     # self.latestFactor = self.currentFactor * self.latestFactor
             else:
@@ -208,7 +208,7 @@ class SinaHTMLParser(HTMLParser):
                     self.exPrice2 = (self.recordDayClose2 +
                                      1000*self.exParser.row["offeringPrice"] *
                                      self.exParser.row["buyOfferingRatio"]/10
-                                    ) / (1000+1000*self.exParser.row["buyOfferingRatio"]/10)
+                                    ) / (1+self.exParser.row["buyOfferingRatio"]/10)
                     self.shareGrantingFactor = self.recordDayClose2 / self.exPrice2
                     # self.latestFactor = self.currentFactor * self.latestFactor
             else:

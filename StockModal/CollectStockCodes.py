@@ -32,3 +32,14 @@ def GotStockCodes():
     # clean database, except vol and amount,the open to close price data are all wrong in database
     # before this date due to struct .sina operation,need re crawl
     # newcursor.execute('delete from stock where date >= 20190101')
+
+    """ select average,nextAverage from
+        (select 
+        date, average,LEAD(average,1,0) over (partition by code order by date asc) nextAverage 
+        from stock 
+        where  date > 20190101) 
+        where (nextAverage - average)/average >0.22 """
+
+    # "cursor.execute('select distinct  code from stock where factor > 500')"
+
+
