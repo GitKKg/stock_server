@@ -36,7 +36,7 @@ class SinaHTMLParser(HTMLParser):
         # if self.latestFactor is None:
         self.firstFactor = None
         self.secondFactor = None
-        self.currentDate = None  # the latest date spider crawled
+        self.currentDate = 0  # the latest date spider crawled
 
         self.dividendShareFactor = None
         self.shareGrantingFactor = None
@@ -117,7 +117,7 @@ class SinaHTMLParser(HTMLParser):
             self.latestFactor = 1
             self.latestDate = 0
 
-        self.currentDate = None
+        self.currentDate = 0
         self.recordDayClose = None
         self.exPrice = None
         self.recordDayClose2 = None
@@ -147,7 +147,8 @@ class SinaHTMLParser(HTMLParser):
 
     def processData(self):  # updated per row ,i.e.,per day
         self.row["date"] = (lambda x, y, z: x*10000+y*100+z)(*list(map(int, self.row["date"].split("-"))))
-        self.currentDate = self.row["date"]
+        if self.currentDate < self.row["date"]:  # table in html is fucking  dsc!
+            self.currentDate = self.row["date"]
         self.row["shares"] = float(self.row["shares"])
         self.row["value"] = float(self.row["value"])
         if self.row["value"] != 0 and self.row["shares"] != 0:  # see 002015 20190319,fucking 0!
