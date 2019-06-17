@@ -276,7 +276,7 @@ def Spider_main(sid,StartYear,EndYear,StartSeason,EndSeason,semaphore):#progress
     # test
     # stocksList = ["002202", "000651", "002017", "002315", "002385", "002728", "600113", "600276", "600290", "600459", "600738",
     #               "603113", "603225"]
-    stocksList = ["002793"]
+    # stocksList = ["002793"]
 
     print("Start retriving data...")
     total = len(stocksList)
