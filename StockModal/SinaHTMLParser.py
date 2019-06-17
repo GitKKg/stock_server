@@ -2,7 +2,7 @@ import os
 import apsw  #  get no choice , must calculate ex factor inside
 # del name in UNIQUE,because stock name may be changed due to ST or shell-borrowing such shit happen
 _table_prop = """(name TEXT, code TEXT, date INTEGER, 
-                    shares FLOAT, value FLOAT, factor INTEGER, 
+                    shares FLOAT, value FLOAT, factor FLOAT, 
                     open INTEGER, high INTEGER, close INTEGER, 
                     low INTEGER, average FLOAT, fuquan_average FLOAT,
                     UNIQUE(code, date))"""
@@ -189,7 +189,15 @@ class SinaHTMLParser(HTMLParser):
                 if self.recordDayClose is None:
                     self.cursor.execute('select close from stock where date =%d and code ="%s" '
                                         % (self.exParser.row["recordDate"], self.stockCode))
-                    self.recordDayClose, = self.cursor.fetchone()
+                    try:
+                        self.recordDayClose, = self.cursor.fetchone()
+                    except:  # Fuck! this fucking stock suspend in Recording day!
+                        self.cursor.execute("""select close from stock where date <%d and code = "%s" 
+                                                                        order by date desc limit 1 """
+                                            % (self.exParser.row["recordDate"], self.stockCode))
+                        self.recordDayClose, = self.cursor.fetchone()
+                        print("preClose is %d" % self.recordDayClose)
+
                     self.exPrice = (self.recordDayClose -
                                     1000*self.exParser.row["dividend"]/10) / (
                                     1+self.exParser.row["sharesSent"]/10 +
@@ -205,7 +213,15 @@ class SinaHTMLParser(HTMLParser):
                 if self.recordDayClose2 is None:
                     self.cursor.execute('select close from stock where date =%d and code ="%s" '
                                         % (self.exParser.row["recordDate2"], self.stockCode))
-                    self.recordDayClose2, = self.cursor.fetchone()
+                    try:
+                        self.recordDayClose2, = self.cursor.fetchone()
+                    except:  # Fuck! this fucking stock suspend in Recording day!
+                        self.cursor.execute("""select close from stock where date <%d and code = "%s" 
+                                                order by date desc limit 1 """
+                                            % (self.exParser.row["recordDate2"], self.stockCode))
+                        self.recordDayClose2, = self.cursor.fetchone()
+                        print("preClose2 is %d" % self.recordDayClose2)
+
                     self.exPrice2 = (self.recordDayClose2 +
                                      1000*self.exParser.row["offeringPrice"] *
                                      self.exParser.row["buyOfferingRatio"]/10
