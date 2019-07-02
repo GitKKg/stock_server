@@ -42,4 +42,41 @@ def GotStockCodes():
 
     # "cursor.execute('select distinct  code from stock where factor > 500')"
 
+    """
+        select aCode, jan,april from
+        (select 
+         code as aCode , 
+         fuquan_average as april
+         from stock
+         where date = 20190409
+         ),
+         (select
+         code as jCode, 
+         fuquan_average as jan
+         from stock
+         where date = 20190102)
+         where aCode = jCode and april > jan *1.3
+        """
+
+    """
+        select aCode from
+        (select 
+         code as aCode , 
+         fuquan_average as a
+         from stock
+         where date = 20190626
+         ),
+         (select
+         code as bCode, 
+         fuquan_average as b
+         from stock
+         where date = 20190627),
+         (select
+         code as cCode, 
+         fuquan_average as c
+         from stock
+         where date = 20190628)
+         where aCode = bCode and bCode=cCode and abs(b-a)/a <0.1 and abs(c-b)/b <0.1
+        """
+
 
