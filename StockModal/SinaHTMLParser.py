@@ -76,15 +76,21 @@ class SinaHTMLParser(HTMLParser):
 
     def setParserFromat(self, new):
         if new:
-            self.startTagStates = {"begin" : ("table", "id", "FundHoldSharesTable", "name", False),
-                                   "name"  : ("th", "colspan", "7", "date", True),
-                                   "date"  : ("a", "target", "_blank", "open", True),
-                                   "open"  : ("div", None, None, "high", True),
-                                   "high"  : ("div", None, None, "close", True),
-                                   "close" : ("div", None, None, "low", True),
-                                   "low"   : ("div", None, None, "shares", True),
-                                   "shares": ("div", None, None, "value", True),
-                                   "value" : ("div", None, None, "date", True)}
+            self.startTagStates = {"begin" : ("h1", "class", "title_01", "name", False),
+                                   "name"  : ("span", "class", "name", "tabBegin", True),
+                                   "tabBegin": ("table", "class", "table_bg001 border_box limit_sale", "entryDescription", False),
+                                   "entryDescription": ("tr", None, None, "dataEntry", False),
+                                   "dataEntry"  : ("tr", None, None, "date", False),
+                                   "date"  : ("td", None, None, "open", True),
+                                   "open"  : ("td", None, None, "high", True),
+                                   "high"  : ("td", None, None, "low", True),
+                                   "low" : ("td", None, None, "close", True),
+                                   "close"   : ("td", None, None, "varity", True),
+                                   "varity": ("td", None, None, "varityPercent", False),
+                                   "varityPercent" : ("td", None, None, "shares", False),
+                                   "shares": ("td", None, None, "value", True),
+                                   "value": ("td", None, None, "dataEntry", True)
+            }
                                   # "factor": ("div", None, None, "date", True)}  #  outdate since sina not provide factor
         else:
             self.startTagStates = {"begin" : ("table", "id", "FundHoldSharesTable", "name", False),
@@ -146,15 +152,28 @@ class SinaHTMLParser(HTMLParser):
                     self.startTag = TTagState._make(self.startTagStates[self.startTagKey])
 
     def processData(self):  # updated per row ,i.e.,per day
+        self.row["name"] = self.row["name"].split()[0]  # "中国中冶(601618) 历史交易数据"  remove space
         self.row["date"] = (lambda x, y, z: x*10000+y*100+z)(*list(map(int, self.row["date"].split("-"))))
         if self.currentDate < self.row["date"]:  # table in html is fucking  dsc!
             self.currentDate = self.row["date"]
-        self.row["shares"] = float(self.row["shares"])
-        self.row["value"] = float(self.row["value"])
+        # self.row["shares"] = float(self.row["shares"])
+        # value and shares of 163 are all split by , (3 digits grouping)
+        def getNumber(*arg):
+            cn = 0
+            sm = 0
+            for i in arg:
+                sm += i * 1000 ** (len(arg)-1-cn)
+                cn = cn +1
+            return sm
+        self.row["shares"] = getNumber(*list(map(int, self.row["shares"].split(",")))) * 100
+        # self.row["value"] = float(self.row["value"])
+        self.row["value"] = getNumber(*list(map(int, self.row["value"].split(",")))) * 10000
         if self.row["value"] != 0 and self.row["shares"] != 0:  # see 002015 20190319,fucking 0!
             self.row["average"] = self.row["value"] / self.row["shares"]
             for field in self.fileFormat[3:]:
-                self.row[field] = int(float(self.row[field])*1000)
+                self.row[field] = int(float(''.join(list(filter(lambda c: c != ',', self.row[field]))))*1000)
+                #self.row[field] = int(float(self.row[field])*1000)
+
         else:
             print("Got fucking error data!\n")
             self.gotErrData = True
@@ -329,6 +348,6 @@ class SinaHTMLParser(HTMLParser):
             self.startTagKey = self.startTag.next
             self.startTag = TTagState._make(self.startTagStates[self.startTagKey])
             # all data fields are collected
-            if self.startTagKey == "date" and self.hasRealData:  # updated per row ,i.e.,per day
+            if self.startTagKey == "dataEntry" and self.hasRealData:  # updated per row ,i.e.,per day
                 self.processData()
                 self.flushData()

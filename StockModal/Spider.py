@@ -22,7 +22,13 @@ StockCodesName = 'C:\WebProgramming\ServerPy3.6\StockModal\stock_codes\stock_cod
 SinaDirPath='E:/SA/StockAssist_0304/sina'
 # baseURL=r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_FuQuanMarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
 # Sina changed ...
-baseURL = r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_MarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
+# baseURL = r"http://vip.stock.finance.sina.com.cn/corp/go.php/vMS_MarketHistory/stockid/%s.phtml?year=%d&jidu=%d"
+
+
+# Sina stopped providing history data
+# http://quotes.money.163.com/trade/lsjysj_601618.html?year=2019&season=1
+baseURL = r"http://quotes.money.163.com/trade/lsjysj_%s.html?year=%d&season=%d"
+
 
 exRightURL = r"http://vip.stock.finance.sina.com.cn/corp/go.php/vISSUE_ShareBonus/stockid/%s.phtml"
 #sina_path=os.getcwd()+"\sina_dir"
@@ -77,7 +83,7 @@ class Spider:
             if GSym.get_value('client_g')[self.sid]['connected']==False:
                 print('spider know disconnected')
                 break
-            if stock.startswith(("010", "019", '1', '2', '3', '4', '5', '7', '8', '9')):  # kyle '0'
+            if stock.startswith(("010", "019", '1', '2', '3', '4', '5', '7', '8', '9')): # or int(stock) < 600763:  # kyle '0'
                 self.spidered_sum += 1
                 spider_percent = int(100*self.spidered_sum/self.stock_total)
                 if spider_percent > old_percent:
@@ -159,22 +165,24 @@ class Spider:
                                         print("%s got new ShareGrantInfo \n" % stock)
                                         self.exRightParser.processShareGrantingData()
 
-                                    print('exRightParser ban sleep 3s\n')
-                                    GSym.get_value('socketio').sleep(3)
+                                    print('no need  wait between 163 and sina\n')
+                                    # GSym.get_value('socketio').sleep(3)
 
                                     #html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
                                     html = requests.get(self.baseURL % (stock, year, season),
                                                         proxies=dict(http='socks5://127.0.0.1:5678'), timeout=(3, 3))
-                                    html.encoding = 'gbk'
+                                    html.encoding = 'UTF-8'  # 163 is utf8 #'gbk'
                                     html = html.text
                                     print(self.baseURL % (stock, year, season))
-                                    print('ban sleep 2s\n')
+                                    print('no need ban sleep 2s\n')
                                     # kyle, socketio.sleep both prevent banning and give other thread to emit percent,but time.sleep will hold emit until spider out
-                                    GSym.get_value('socketio').sleep(2)
+                                    # GSym.get_value('socketio').sleep(2)
                                     self.parser.stockCode = stock
                                     self.parser.resetFactorExPrices()
                                     self.parser.feed(html)
                                     self.parser.updateCurrentSeasonFuquanAndFactor()
+                                    print('with socks,wait 3s  for ban\n')
+                                    GSym.get_value('socketio').sleep(3)
                                     break
                                 except:
                                     print("Error: %s %d %d" % (stock, year, season))
@@ -207,18 +215,18 @@ class Spider:
                                         print("%s got new ShareGrantInfo \n" % stock)
                                         self.exRightParser.processShareGrantingData()
 
-                                    print('exRightParser ban sleep 3s\n')
-                                    GSym.get_value('socketio').sleep(3)
+                                    print('no need  wait between 163 and sina\n')
+                                    # GSym.get_value('socketio').sleep(3)
 
                                     #html = urlopen(self.baseURL % (stock, year, season), timeout=6).read()
                                     html = requests.get(self.baseURL % (stock, year, season), timeout=(3, 3))
-                                    html.encoding = 'gbk'
+                                    html.encoding = 'UTF-8'  # 163 is utf8 #'gbk'
                                     html = html.text
 
                                     print(self.baseURL % (stock, year, season))
-                                    print('ban sleep 3s\n')
+                                    print('no need ban sleep 3s\n')
                                     # kyle, socketio.sleep both prevent banning and give other thread to emit percent,but time.sleep will hold emit until spider out
-                                    GSym.get_value('socketio').sleep(3)
+                                    # GSym.get_value('socketio').sleep(3)
 
                                     self.parser.stockCode = stock
                                     self.parser.resetFactorExPrices()
@@ -226,6 +234,8 @@ class Spider:
                                     self.parser.feed(html)
 
                                     self.parser.updateCurrentSeasonFuquanAndFactor()
+                                    print('no socks , just wait 3s  for ban\n')
+                                    GSym.get_value('socketio').sleep(5)
                                     break
                                 except:
                                     print("Error: %s %d %d" % (stock, year, season))
@@ -272,6 +282,7 @@ def Spider_main(sid,StartYear,EndYear,StartSeason,EndSeason,semaphore):#progress
     # stocksList = list(map(lambda x: x[0], cursor.fetchall()))
     # kyle added set to remove replication due to renaming for ST or shell borrowing such shit happen
     stocksList = sorted(list(set(map(lambda x: x[0], cursor.fetchall()))))
+    # stocksList = ["601618"]
 
     # test
     # stocksList = ["002202", "000651", "002017", "002315", "002385", "002728", "600113", "600276", "600290", "600459", "600738",
