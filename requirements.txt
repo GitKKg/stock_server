@@ -12,7 +12,7 @@ click==6.7
 constantly==15.1.0
 cycler==0.10.0
 dnspython==1.16.0
-eventlet==0.24.1
+eventlet==0.31.0
 Flask==1.0.2
 Flask-RESTful==0.3.6
 Flask-SocketIO==3.0.1
