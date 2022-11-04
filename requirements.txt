@@ -38,7 +38,7 @@ pytz==2018.5
 queuelib==1.5.0
 requests==2.21.0
 six==1.11.0
-Twisted==18.9.0
+Twisted==22.10.0
 urllib3==1.24.1
 vine==1.1.4
 Werkzeug==0.14.1
